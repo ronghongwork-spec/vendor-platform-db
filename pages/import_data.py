@@ -33,20 +33,21 @@ def render(company_code: str):
                 ui.label(hint).classes("text-xs text-gray-400")
 
                 def make_handler(importer_fn=importer_fn, module=module, label=label):
-                    def handle_upload(e):
-                        suffix = os.path.splitext(e.name)[1] or ".xlsx"
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                            tmp.write(e.content.read())
-                            tmp_path = tmp.name
+                    async def handle_upload(e):
+                        filename = e.file.name
+                        suffix = os.path.splitext(filename)[1] or ".xlsx"
+                        tmp_path = tempfile.NamedTemporaryFile(delete=False, suffix=suffix).name
                         try:
+                            await e.file.save(tmp_path)
                             username = app.storage.user.get("username", "unknown")
-                            result = importer_fn(tmp_path, company_id, e.name, username)
+                            result = importer_fn(tmp_path, company_id, filename, username)
                             ui.notify(f"{label} 匯入成功：{result}", type="positive")
                             refresh_log()
                         except Exception as ex:
                             ui.notify(f"{label} 匯入失敗：{ex}", type="negative")
                         finally:
-                            os.unlink(tmp_path)
+                            if os.path.exists(tmp_path):
+                                os.unlink(tmp_path)
                     return handle_upload
 
                 ui.upload(on_upload=make_handler(), auto_upload=True).props("accept=.xlsx").classes("w-full")
