@@ -1,6 +1,10 @@
+import os
 from nicegui import ui, app
 from database import get_session
 from models import Company
+
+# 部署/測試期間可以先跳過登入，等一切設定好之後，把 Render 的環境變數 REQUIRE_LOGIN 改成 true（或直接刪掉這個變數）即可恢復要求登入
+REQUIRE_LOGIN = os.getenv("REQUIRE_LOGIN", "false").lower() == "true"
 
 COMPANIES = [
     ("xingsheng", "興聖"),
@@ -21,7 +25,9 @@ MODULES = [
 
 
 def require_login():
-    """放在每個頁面最前面，沒登入就導去 /login"""
+    """放在每個頁面最前面，沒登入就導去 /login（REQUIRE_LOGIN=false 時暫時跳過，供部署設定期間使用）"""
+    if not REQUIRE_LOGIN:
+        return True
     if not app.storage.user.get("authenticated"):
         ui.navigate.to("/login")
         return False
@@ -58,8 +64,12 @@ def header(active_company: str, active_module: str):
                     "text-white" + (" bg-primary" if is_active else "")
                 )
         with ui.row().classes("items-center gap-2"):
-            ui.label(f"登入者：{app.storage.user.get('display_name', '')}").classes("text-white text-sm")
-            ui.button(icon="logout", on_click=_logout).props("flat round").classes("text-white")
+            display_name = app.storage.user.get("display_name")
+            if REQUIRE_LOGIN or display_name:
+                ui.label(f"登入者：{display_name or ''}").classes("text-white text-sm")
+                ui.button(icon="logout", on_click=_logout).props("flat round").classes("text-white")
+            else:
+                ui.label("（測試模式：尚未啟用登入）").classes("text-white text-sm opacity-70")
 
     with ui.row().classes("w-full bg-neutral-100 px-4 py-1 gap-1"):
         for mod_code, mod_name, icon in MODULES:
