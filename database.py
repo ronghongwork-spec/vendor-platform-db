@@ -5,7 +5,7 @@
 """
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 load_dotenv()
@@ -28,10 +28,30 @@ def get_session():
 
 
 def init_db():
-    """建立所有資料表（存在的話不會動）+ 塞入四間公司基本資料與示範帳號"""
+    """建立所有資料表（存在的話不會動）+ 自動補上程式改版後新增的欄位 + 塞入四間公司基本資料"""
     import models  # noqa: F401  (確保 model 有被註冊到 Base.metadata)
     Base.metadata.create_all(engine)
+    _sync_missing_columns()
     _seed_companies()
+
+
+def _sync_missing_columns():
+    """
+    輕量版 schema migration：比對資料庫現有欄位跟 models.py 定義的欄位，
+    少什麼欄位就自動用 ALTER TABLE 補上（都補成允許 NULL，不會動到既有資料）。
+    這樣以後只要在 models.py 加新欄位，重新部署就會自動生效，不用手動下 SQL。
+    """
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table_name, table in Base.metadata.tables.items():
+            if not inspector.has_table(table_name):
+                continue  # 全新的表，create_all 已經建好完整欄位，不用補
+            existing_columns = {c["name"] for c in inspector.get_columns(table_name)}
+            for column in table.columns:
+                if column.name in existing_columns:
+                    continue
+                col_type = column.type.compile(engine.dialect)
+                conn.execute(text(f'ALTER TABLE {table_name} ADD COLUMN "{column.name}" {col_type}'))
 
 
 def _seed_companies():
