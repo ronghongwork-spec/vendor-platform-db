@@ -1,8 +1,9 @@
-from datetime import date, timedelta
+from datetime import date
 from nicegui import ui
 from database import get_session
 from models import Payable, Payment, OtherExpense, Vendor
 from pages.layout import header, require_login, get_company_id, get_company_name
+from payment_calc import compute_payment_date
 from sqlalchemy import func
 
 SOON_DAYS = 7
@@ -29,18 +30,18 @@ def render(company_code: str):
 
         # 請款期限提醒統計（同 reminders.py 的邏輯）
         today = date.today()
-        rows_with_terms = (
-            session.query(Payable.doc_date, Vendor.payment_terms_days)
+        rows_with_vendor = (
+            session.query(Payable.doc_date, Vendor)
             .join(Vendor, Payable.vendor_id == Vendor.id)
-            .filter(
-                Payable.company_id == company_id,
-                Vendor.payment_terms_days.isnot(None),
-                Payable.doc_date.isnot(None),
-            ).all()
+            .filter(Payable.company_id == company_id, Payable.doc_date.isnot(None))
+            .all()
         )
         overdue_count, soon_count = 0, 0
-        for doc_date, terms in rows_with_terms:
-            days_left = (doc_date + timedelta(days=terms) - today).days
+        for doc_date, vendor in rows_with_vendor:
+            due_date = compute_payment_date(doc_date, vendor)
+            if due_date is None:
+                continue
+            days_left = (due_date - today).days
             if days_left < 0:
                 overdue_count += 1
             elif days_left <= SOON_DAYS:
