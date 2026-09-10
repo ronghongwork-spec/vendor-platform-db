@@ -25,6 +25,15 @@ def to_float(v, default=0.0):
         return default
 
 
+def to_int(v, default=None):
+    try:
+        if pd.isna(v):
+            return default
+        return int(float(v))
+    except (TypeError, ValueError):
+        return default
+
+
 def to_date(v):
     if pd.isna(v):
         return None
