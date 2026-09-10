@@ -49,15 +49,28 @@ class Vendor(Base):
     seq_no = Column(String(20))            # 序號
     vendor_code = Column(String(50), index=True)      # 廠商代號
     vendor_name = Column(String(200), index=True)     # 廠商簡稱
+    full_name = Column(String(200))        # 廠商全名
     phone = Column(String(50))
     fax = Column(String(50))
     contact_name = Column(String(50))
     contact_title = Column(String(50))
     mobile = Column(String(50))
-    address = Column(String(255))
+    email = Column(String(100))
+    address = Column(String(255))          # 營業地址
+    billing_address = Column(String(255))  # 帳單地址
     tax_id = Column(String(20), index=True)           # 統一編號
-    remit_account = Column(String(50))                # 匯款帳號（若有從應付/付款明細學到會回填）
-    payment_terms_days = Column(Integer, nullable=True)  # 月結天數，用來推算請款/付款截止日提醒
+    remit_account = Column(String(50))                # 匯款帳號
+    remark = Column(Text)                  # 備註
+
+    # 結帳/付款規則（來自廠商資料 Excel，全部分公司共用同一套欄位定義）
+    settlement_method = Column(String(20))       # 結帳方式：月結 / 貨到
+    delivery_days = Column(Integer)              # 貨到天數（結帳方式=貨到 時使用）
+    settlement_day = Column(Integer)             # 每月結帳日（1~31，31代表月底）
+    settlement_month_offset = Column(String(20)) # 月結月：本月 / 下1個月
+    payment_calc_method = Column(String(20))     # 付款日計算方式：每月付款日 / 付款天數
+    payment_days = Column(Integer)               # 付款天數（付款日計算方式=付款天數 時使用）
+    settlement_day_label = Column(String(20))    # 月結日（Excel原始文字，僅供顯示參考）
+    payment_day_label = Column(String(20))       # 付款日（Excel原始文字，僅供顯示參考）
 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -76,7 +89,7 @@ class Payable(Base):
     import_batch_id = Column(Integer, ForeignKey("import_batches.id"))
 
     vendor_name_raw = Column(String(200), index=True)   # 廠商（原始文字，不一定能對到 vendor_code）
-    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True)
 
     doc_date = Column(Date)          # 單據日期
     source_no = Column(String(50), index=True)   # 來源單號
@@ -119,7 +132,7 @@ class Payment(Base):
     import_batch_id = Column(Integer, ForeignKey("import_batches.id"))
 
     vendor_name_raw = Column(String(200), index=True)
-    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True)
 
     payment_date = Column(Date)       # 付款日期
     payment_no = Column(String(50), index=True)  # 付款單號

@@ -3,7 +3,7 @@ from nicegui import ui
 from dotenv import load_dotenv
 
 from database import init_db
-from pages import dashboard, vendors, payables, expenses, payments, reminders, import_data
+from pages import login, dashboard, vendors, payables, expenses, payments, reminders, import_data
 
 load_dotenv()
 
@@ -21,6 +21,11 @@ PAGE_RENDERERS = {
 @ui.page("/")
 def index():
     ui.navigate.to("/c/xingsheng/dashboard")
+
+
+@ui.page("/login")
+def login_page():
+    login.render()
 
 
 @ui.page("/c/{company_code}/{module}")
